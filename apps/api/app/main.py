@@ -208,34 +208,27 @@ def get_customer_subscription(customer_id: int):
 
 
 def get_customer_tickets(customer_id: int) -> list[Ticket]:
-    customer_tickets = []
-
-    for ticket in tickets:
-        if ticket.customer_id == customer_id:
-            customer_tickets.append(ticket)
-
-    return customer_tickets
+    return [
+        ticket
+        for ticket in tickets
+        if ticket.customer_id == customer_id
+    ]
 
 
 def get_open_tickets() -> list[Ticket]:
-    open_tickets = []
-
-    for ticket in tickets:
-        if ticket.status == "open":
-            open_tickets.append(ticket)
-
-    return open_tickets
+    return [
+        ticket
+        for ticket in tickets
+        if ticket.status == "open"
+    ]
 
 
 def get_high_priority_tickets() -> list[Ticket]:
-    high_priority_tickets = []
-
-    for ticket in tickets:
-        if ticket.priority in ("high", "critical"):
-            high_priority_tickets.append(ticket)
-
-    return high_priority_tickets
-
+    return [
+        ticket
+        for ticket in tickets
+        if ticket.priority in ("high", "critical")
+    ]
 
 def should_escalate_ticket(ticket: Ticket) -> bool:
     if ticket.priority == "critical":
@@ -246,6 +239,84 @@ def should_escalate_ticket(ticket: Ticket) -> bool:
 
     return False
 
+def filter_tickets(
+    status: str | None = None,
+    priority: str | None = None,
+    customer_id: int | None = None,
+) -> list[Ticket]:
+    filtered_tickets = tickets
+
+    if status is not None:
+        filtered_tickets = [
+            ticket
+            for ticket in filtered_tickets
+            if ticket.status == status
+        ]
+
+    if priority is not None:
+        filtered_tickets = [
+            ticket
+            for ticket in filtered_tickets
+            if ticket.priority == priority
+        ]
+
+    if customer_id is not None:
+        filtered_tickets = [
+            ticket
+            for ticket in filtered_tickets
+            if ticket.customer_id == customer_id
+        ]
+
+    return filtered_tickets
+
+def count_tickets_by_status() -> dict[str, int]:
+    status_counts = {status: 0 for status in Ticket.ALLOWED_STATUSES}
+
+    for ticket in tickets:
+        status_counts[ticket.status] += 1
+
+    return status_counts
+
+def group_tickets_by_customer() -> dict[int, list[Ticket]]:
+    customer_ticket_map = {customer.id: [] for customer in customers}
+
+    for ticket in tickets:
+        customer_ticket_map[ticket.customer_id].append(ticket)
+
+    return customer_ticket_map
+
+def get_customer_ids_with_critical_tickets() -> set[int]:
+    critical_ticket_customer_ids = set()
+
+    for ticket in tickets:
+        if ticket.priority == "critical":
+            critical_ticket_customer_ids.add(ticket.customer_id)
+
+    return critical_ticket_customer_ids
+
+def get_tickets_sorted_by_priority() -> list[Ticket]:
+    priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+    return sorted(
+        tickets,
+        key=lambda ticket: priority_order[ticket.priority]
+    )
+    
+customer_names = [
+    "Acme Cloud",
+    "Globex",
+    "Wayne Enterprises",
+]
+
+health_scores = [
+    88,
+    63,
+    95,
+]
+
+for q, a in zip(customer_names, health_scores):
+    print('{0}: {1}'.format(q, a))
+
 
 if __name__ == "__main__":
     customer = get_customer_by_id(1)
@@ -253,7 +324,7 @@ if __name__ == "__main__":
     if customer is not None:
         subscription = get_customer_subscription(customer.id)
         customer_tickets = get_customer_tickets(customer.id)
-        open_customer_tickets = []
+        open_customer_tickets = filter_tickets(status="open")
         escalated_tickets = []
 
         for ticket in customer_tickets:
