@@ -215,6 +215,16 @@ def get_customer_tickets(customer_id: int) -> list[Ticket]:
     ]
 
 
+def get_tickets_by_ids(*ticket_ids: int) -> list[Ticket]:
+    print(type(ticket_ids))
+
+    return [
+        ticket
+        for ticket in tickets
+        if ticket.id in ticket_ids
+    ]
+
+
 def get_open_tickets() -> list[Ticket]:
     return [
         ticket
@@ -240,9 +250,11 @@ def should_escalate_ticket(ticket: Ticket) -> bool:
     return False
 
 def filter_tickets(
+    *,
     status: str | None = None,
     priority: str | None = None,
     customer_id: int | None = None,
+    requires_escalation: bool | None = None,
 ) -> list[Ticket]:
     filtered_tickets = tickets
 
@@ -265,6 +277,13 @@ def filter_tickets(
             ticket
             for ticket in filtered_tickets
             if ticket.customer_id == customer_id
+        ]
+
+    if requires_escalation is not None:
+        filtered_tickets = [
+            ticket
+            for ticket in filtered_tickets
+            if should_escalate_ticket(ticket) == requires_escalation
         ]
 
     return filtered_tickets
@@ -301,7 +320,94 @@ def get_tickets_sorted_by_priority() -> list[Ticket]:
         tickets,
         key=lambda ticket: priority_order[ticket.priority]
     )
-    
+
+
+def get_ticket_sla_hours(ticket: Ticket) -> int:
+    match ticket.priority:
+        case "critical":
+            return 1
+        case "high":
+            return 4
+        case "medium":
+            return 12
+        case "low":
+            return 48
+        case _:
+            raise ValueError(f"Unsupported ticket priority: {ticket.priority}")
+
+
+def get_ticket_response_strategy(ticket: Ticket) -> str:
+    match ticket.priority:
+        case "critical":
+            return "immediate_escalation"
+        case "high":
+            return "priority_support"
+        case "medium":
+            return "standard_support"
+        case "low":
+            return "async_support"
+        case _:
+            raise ValueError(f"Unsupported ticket priority: {ticket.priority}")
+
+
+def get_customers_by_ids(*customer_ids: int) -> list[Customer]:
+    unique_customer_ids = set(customer_ids)
+
+    return [
+        customer
+        for customer in customers
+        if customer.id in unique_customer_ids
+    ]
+
+
+def print_support_summary(
+    *,
+    status: str | None = None,
+    priorities: tuple[str, ...] | None = None,
+) -> None:
+    filtered_tickets = filter_tickets(status=status)
+
+    if priorities is not None:
+        priority_filters = set(priorities)
+        filtered_tickets = [
+            ticket
+            for ticket in filtered_tickets
+            if ticket.priority in priority_filters
+        ]
+
+    report_customers = get_customers_by_ids(
+        *[ticket.customer_id for ticket in filtered_tickets]
+    )
+    customers_by_id = {
+        customer.id: customer
+        for customer in report_customers
+    }
+
+    print("SUPPORT SUMMARY")
+    print()
+    print("Filters:")
+    print(f"status: {status if status is not None else 'all'}")
+    print(
+        "priorities: "
+        f"{', '.join(priorities) if priorities is not None else 'all'}"
+    )
+    print()
+    print(f"Tickets: {len(filtered_tickets)}")
+    print()
+
+    for index, ticket in enumerate(filtered_tickets, start=1):
+        customer = customers_by_id.get(ticket.customer_id)
+        customer_name = customer.company_name if customer is not None else "Unknown"
+        escalation = "YES" if should_escalate_ticket(ticket) else "NO"
+
+        print(f"{index}. {ticket.subject}")
+        print(f"   Customer: {customer_name}")
+        print(f"   Priority: {ticket.priority.upper()}")
+        print(f"   SLA: {get_ticket_sla_hours(ticket)}h")
+        print(f"   Escalation: {escalation}")
+        print()
+
+
 customer_names = [
     "Acme Cloud",
     "Globex",
