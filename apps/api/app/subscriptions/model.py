@@ -1,3 +1,6 @@
+from .exceptions import InvalidSubscriptionPlanError
+
+
 class Subscription:
     ALLOWED_PLANS = ("starter", "business", "enterprise")
 
@@ -10,7 +13,7 @@ class Subscription:
         monthly_price: float,
     ):
         if plan not in self.ALLOWED_PLANS:
-            raise ValueError(f"Unsupported subscription plan: {plan}")
+            raise InvalidSubscriptionPlanError(plan)
 
         self.id = id
         self.customer_id = customer_id

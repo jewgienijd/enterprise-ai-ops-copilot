@@ -1,6 +1,29 @@
-from ..customers.service import get_customers_by_ids
+from ..customers.service import (
+    get_customer_by_id,
+    get_customers_by_ids,
+    validate_customer_can_create_ticket,
+)
 from ..data.seed import customers, tickets
+from .exceptions import InvalidTicketPriorityError, TicketNotFoundError
 from .model import Ticket
+
+
+def find_ticket_by_id(ticket_id: int) -> Ticket | None:
+    for ticket in tickets:
+        if ticket.id == ticket_id:
+            return ticket
+
+    return None
+
+
+def get_ticket_by_id(ticket_id: int) -> Ticket:
+    ticket = find_ticket_by_id(ticket_id)
+
+    if ticket is None:
+        raise TicketNotFoundError(ticket_id)
+
+    return ticket
+
 
 def get_tickets_by_ids(*ticket_ids: int) -> list[Ticket]:
     print(type(ticket_ids))
@@ -111,7 +134,7 @@ def get_ticket_sla_hours(ticket: Ticket) -> int:
         case "low":
             return 48
         case _:
-            raise ValueError(f"Unsupported ticket priority: {ticket.priority}")
+            raise InvalidTicketPriorityError(ticket.priority)
 
 
 def get_ticket_response_strategy(ticket: Ticket) -> str:
@@ -125,4 +148,27 @@ def get_ticket_response_strategy(ticket: Ticket) -> str:
         case "low":
             return "async_support"
         case _:
-            raise ValueError(f"Unsupported ticket priority: {ticket.priority}")
+            raise InvalidTicketPriorityError(ticket.priority)
+
+
+def create_ticket(
+    *,
+    customer_id: int,
+    subject: str,
+    description: str,
+    priority: str,
+) -> Ticket:
+    customer = get_customer_by_id(customer_id)
+    validate_customer_can_create_ticket(customer)
+
+    ticket = Ticket(
+        max(ticket.id for ticket in tickets) + 1,
+        customer_id,
+        subject,
+        description,
+        "open",
+        priority,
+    )
+    tickets.append(ticket)
+
+    return ticket

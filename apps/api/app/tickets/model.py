@@ -1,5 +1,8 @@
 
 
+from .exceptions import InvalidTicketPriorityError, InvalidTicketStatusError
+
+
 class Ticket:
     ALLOWED_STATUSES = ("open", "in_progress", "resolved", "closed")
     ALLOWED_PRIORITIES = ("low", "medium", "high", "critical")
@@ -14,10 +17,10 @@ class Ticket:
         priority: str,
     ):
         if status not in self.ALLOWED_STATUSES:
-            raise ValueError(f"Unsupported ticket status: {status}")
+            raise InvalidTicketStatusError(status)
 
         if priority not in self.ALLOWED_PRIORITIES:
-            raise ValueError(f"Unsupported ticket priority: {priority}")
+            raise InvalidTicketPriorityError(priority)
 
         self.id = id
         self.customer_id = customer_id
