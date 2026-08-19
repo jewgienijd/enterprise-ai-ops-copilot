@@ -4,7 +4,7 @@ from .customers.service import get_customer_by_id, get_customer_tickets
 from .subscriptions.exceptions import SubscriptionNotFoundError
 from .subscriptions.service import get_active_customer_subscription
 from .tickets.exceptions import InvalidTicketPriorityError
-from .tickets.service import create_ticket, filter_tickets, should_escalate_ticket
+from .tickets.service import create_ticket, filter_tickets
 
 
 def main() -> None:
@@ -15,10 +15,10 @@ def main() -> None:
     escalated_tickets = [
         ticket
         for ticket in customer_tickets
-        if should_escalate_ticket(ticket)
+        if ticket.requires_escalation
     ]
 
-    print(f"Customer: {customer.company_name}")
+    print(f"Customer: {customer.display_name}")
     print(f"Plan: {subscription.plan.title()}")
 
     print()

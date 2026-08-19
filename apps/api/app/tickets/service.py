@@ -26,8 +26,6 @@ def get_ticket_by_id(ticket_id: int) -> Ticket:
 
 
 def get_tickets_by_ids(*ticket_ids: int) -> list[Ticket]:
-    print(type(ticket_ids))
-
     return [
         ticket
         for ticket in tickets
@@ -39,7 +37,7 @@ def get_open_tickets() -> list[Ticket]:
     return [
         ticket
         for ticket in tickets
-        if ticket.status == "open"
+        if ticket.is_open
     ]
 
 
@@ -50,14 +48,10 @@ def get_high_priority_tickets() -> list[Ticket]:
         if ticket.priority in ("high", "critical")
     ]
 
+
 def should_escalate_ticket(ticket: Ticket) -> bool:
-    if ticket.priority == "critical":
-        return True
+    return ticket.requires_escalation
 
-    if ticket.priority == "high" and ticket.status == "open":
-        return True
-
-    return False
 
 def filter_tickets(
     *,
@@ -93,10 +87,11 @@ def filter_tickets(
         filtered_tickets = [
             ticket
             for ticket in filtered_tickets
-            if should_escalate_ticket(ticket) == requires_escalation
+            if ticket.requires_escalation == requires_escalation
         ]
 
     return filtered_tickets
+
 
 def count_tickets_by_status() -> dict[str, int]:
     status_counts = {status: 0 for status in Ticket.ALLOWED_STATUSES}
@@ -106,6 +101,7 @@ def count_tickets_by_status() -> dict[str, int]:
 
     return status_counts
 
+
 def group_tickets_by_customer() -> dict[int, list[Ticket]]:
     customer_ticket_map = {customer.id: [] for customer in customers}
 
@@ -113,6 +109,7 @@ def group_tickets_by_customer() -> dict[int, list[Ticket]]:
         customer_ticket_map[ticket.customer_id].append(ticket)
 
     return customer_ticket_map
+
 
 def get_tickets_sorted_by_priority() -> list[Ticket]:
     priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -138,17 +135,7 @@ def get_ticket_sla_hours(ticket: Ticket) -> int:
 
 
 def get_ticket_response_strategy(ticket: Ticket) -> str:
-    match ticket.priority:
-        case "critical":
-            return "immediate_escalation"
-        case "high":
-            return "priority_support"
-        case "medium":
-            return "standard_support"
-        case "low":
-            return "async_support"
-        case _:
-            raise InvalidTicketPriorityError(ticket.priority)
+    return ticket.response_strategy
 
 
 def create_ticket(
@@ -161,13 +148,12 @@ def create_ticket(
     customer = get_customer_by_id(customer_id)
     validate_customer_can_create_ticket(customer)
 
-    ticket = Ticket(
-        max(ticket.id for ticket in tickets) + 1,
-        customer_id,
-        subject,
-        description,
-        "open",
-        priority,
+    ticket = Ticket.create_new(
+        id=max(ticket.id for ticket in tickets) + 1,
+        customer_id=customer_id,
+        subject=subject,
+        description=description,
+        priority=priority,
     )
     tickets.append(ticket)
 

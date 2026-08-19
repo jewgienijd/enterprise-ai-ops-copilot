@@ -1,5 +1,5 @@
 from apps.api.app.customers.service import get_customers_by_ids
-from apps.api.app.tickets.service import filter_tickets, get_ticket_sla_hours, should_escalate_ticket
+from apps.api.app.tickets.service import filter_tickets, get_ticket_sla_hours
 
 
 def print_support_summary(
@@ -39,8 +39,8 @@ def print_support_summary(
 
     for index, ticket in enumerate(filtered_tickets, start=1):
         customer = customers_by_id.get(ticket.customer_id)
-        customer_name = customer.company_name if customer is not None else "Unknown"
-        escalation = "YES" if should_escalate_ticket(ticket) else "NO"
+        customer_name = customer.display_name if customer is not None else "Unknown"
+        escalation = "YES" if ticket.requires_escalation else "NO"
 
         print(f"{index}. {ticket.subject}")
         print(f"   Customer: {customer_name}")
