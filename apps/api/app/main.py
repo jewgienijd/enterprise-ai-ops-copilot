@@ -5,6 +5,20 @@ from .subscriptions.exceptions import SubscriptionNotFoundError
 from .subscriptions.service import get_active_customer_subscription
 from .tickets.exceptions import InvalidTicketPriorityError
 from .tickets.service import create_ticket, filter_tickets
+from fastapi import FastAPI # type: ignore
+
+app = FastAPI(
+    title="Enterprise AI Ops Copilot API",
+    version="0.1.0",
+)
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 def main() -> None:
@@ -86,6 +100,8 @@ def main() -> None:
         get_active_customer_subscription(5)
     except SubscriptionNotFoundError as exc:
         print(f"Subscription problem: {exc}")
+        
+    
 
 
 if __name__ == "__main__":
