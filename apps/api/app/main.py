@@ -1,11 +1,17 @@
+from fastapi import FastAPI, HTTPException, status  # type: ignore
+
 from .core.exceptions import ApplicationError
 from .customers.exceptions import CustomerNotFoundError, InactiveCustomerError
-from .customers.service import get_customer_by_id, get_customer_tickets
+from .customers.model import Customer
+from .customers.service import (
+    get_customer_by_id,
+    get_customer_tickets,
+    list_customers,
+)
 from .subscriptions.exceptions import SubscriptionNotFoundError
 from .subscriptions.service import get_active_customer_subscription
-from .tickets.exceptions import InvalidTicketPriorityError
-from .tickets.service import create_ticket, filter_tickets
-from fastapi import FastAPI # type: ignore
+from .tickets.exceptions import InvalidTicketPriorityError, TicketNotFoundError
+from .tickets.service import create_ticket, filter_tickets, get_ticket_by_id
 
 app = FastAPI(
     title="Enterprise AI Ops Copilot API",
@@ -19,6 +25,38 @@ def read_root():
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+@app.get("/customers")
+def get_customers(active: bool | None = None) -> list[Customer]:
+    return list_customers(active=active)
+
+
+@app.get("/customers/{customer_id}")
+def get_customer(customer_id: int) -> Customer:
+    try:
+        return get_customer_by_id(customer_id)
+    except CustomerNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+        
+@app.get("/tickets")
+def get_tickets(
+    ticket_status: str | None = None,
+    priority: str | None = None,
+):
+    return filter_tickets(status=ticket_status, priority=priority)
+
+@app.get("/tickets/{ticket_id}")
+def get_ticket(ticket_id: int):
+    try:
+        return get_ticket_by_id(ticket_id)
+    except TicketNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
 
 
 def main() -> None:

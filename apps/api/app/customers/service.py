@@ -37,6 +37,17 @@ def parse_customer_id(value: str) -> int:
         raise InvalidCustomerIdError(value) from exc
 
 
+def list_customers(active: bool | None = None) -> list[Customer]:
+    if active is None:
+        return customers
+
+    return [
+        customer
+        for customer in customers
+        if customer.is_active == active
+    ]
+
+
 def get_customer_tickets(customer_id: int) -> list[Ticket]:
     return [
         ticket
