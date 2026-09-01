@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, status  # type: ignore
+from fastapi import FastAPI, HTTPException, status
 
 from .core.exceptions import ApplicationError
 from .customers.exceptions import CustomerNotFoundError, InactiveCustomerError
@@ -11,7 +11,11 @@ from .customers.service import (
 from .subscriptions.exceptions import SubscriptionNotFoundError
 from .subscriptions.service import get_active_customer_subscription
 from .tickets.exceptions import InvalidTicketPriorityError, TicketNotFoundError
-from .tickets.service import create_ticket, filter_tickets, get_ticket_by_id
+from .tickets.schemas import TicketCreateRequest, TicketResponse
+from .tickets.service import filter_tickets, get_ticket_by_id
+from .tickets.service import (
+    create_ticket as create_ticket_service,
+)
 
 app = FastAPI(
     title="Enterprise AI Ops Copilot API",
@@ -48,15 +52,43 @@ def get_tickets(
 ):
     return filter_tickets(status=ticket_status, priority=priority)
 
-@app.get("/tickets/{ticket_id}")
-def get_ticket(ticket_id: int):
+
+@app.post(
+    "/tickets",
+    status_code=status.HTTP_201_CREATED,
+)
+def create_ticket(
+    request: TicketCreateRequest,
+) -> TicketResponse:
     try:
-        return get_ticket_by_id(ticket_id)
+        ticket = create_ticket_service(
+            customer_id=request.customer_id,
+            subject=request.subject,
+            description=request.description,
+            priority=request.priority,
+        )
+    except ApplicationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return TicketResponse.model_validate(ticket)
+
+
+@app.get("/tickets/{ticket_id}")
+def get_ticket(
+    ticket_id: int,
+) -> TicketResponse:
+    try:
+        ticket = get_ticket_by_id(ticket_id)
     except TicketNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
+
+    return TicketResponse.model_validate(ticket)
 
 
 def main() -> None:
@@ -87,7 +119,7 @@ def main() -> None:
     print("Ticket creation scenarios:")
 
     try:
-        ticket = create_ticket(
+        ticket = create_ticket_service(
             customer_id=1,
             subject="Cannot access reports",
             description="Reports page returns an error.",
@@ -101,7 +133,7 @@ def main() -> None:
         print("Ticket creation attempt finished")
 
     try:
-        create_ticket(
+        create_ticket_service(
             customer_id=999,
             subject="Test",
             description="Test",
@@ -111,7 +143,7 @@ def main() -> None:
         print(f"Cannot create ticket: {exc}")
 
     try:
-        create_ticket(
+        create_ticket_service(
             customer_id=5,
             subject="Test",
             description="Test",
@@ -121,7 +153,7 @@ def main() -> None:
         print(f"Cannot create ticket: {exc}")
 
     try:
-        create_ticket(
+        create_ticket_service(
             customer_id=1,
             subject="Test",
             description="Test",

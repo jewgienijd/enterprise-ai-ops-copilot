@@ -1,5 +1,5 @@
-from apps.api.app.customers.service import get_customers_by_ids
-from apps.api.app.tickets.service import filter_tickets, get_ticket_sla_hours
+from ..customers.service import get_customers_by_ids
+from ..tickets.service import filter_tickets, get_ticket_sla_hours
 
 
 def print_support_summary(
