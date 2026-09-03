@@ -1,160 +1,150 @@
-from ..customers.service import (
-    get_customer_by_id,
-    get_customers_by_ids,
-    validate_customer_can_create_ticket,
-)
+from ..customers.service import CustomerService
 from ..data.seed import customers, tickets
 from .exceptions import InvalidTicketPriorityError, TicketNotFoundError
 from .model import Ticket
 
 
-def find_ticket_by_id(ticket_id: int) -> Ticket | None:
-    for ticket in tickets:
-        if ticket.id == ticket_id:
-            return ticket
+class TicketService:
+    def __init__(self, customer_service: CustomerService) -> None:
+        self.customer_service = customer_service
 
-    return None
+    def find_ticket_by_id(self, ticket_id: int) -> Ticket | None:
+        for ticket in tickets:
+            if ticket.id == ticket_id:
+                return ticket
 
+        return None
 
-def get_ticket_by_id(ticket_id: int) -> Ticket:
-    ticket = find_ticket_by_id(ticket_id)
+    def get_ticket_by_id(self, ticket_id: int) -> Ticket:
+        ticket = self.find_ticket_by_id(ticket_id)
 
-    if ticket is None:
-        raise TicketNotFoundError(ticket_id)
+        if ticket is None:
+            raise TicketNotFoundError(ticket_id)
 
-    return ticket
+        return ticket
 
-
-def get_tickets_by_ids(*ticket_ids: int) -> list[Ticket]:
-    return [
-        ticket
-        for ticket in tickets
-        if ticket.id in ticket_ids
-    ]
-
-
-def get_open_tickets() -> list[Ticket]:
-    return [
-        ticket
-        for ticket in tickets
-        if ticket.is_open
-    ]
-
-
-def get_high_priority_tickets() -> list[Ticket]:
-    return [
-        ticket
-        for ticket in tickets
-        if ticket.priority in ("high", "critical")
-    ]
-
-
-def should_escalate_ticket(ticket: Ticket) -> bool:
-    return ticket.requires_escalation
-
-
-def filter_tickets(
-    *,
-    status: str | None = None,
-    priority: str | None = None,
-    customer_id: int | None = None,
-    requires_escalation: bool | None = None,
-) -> list[Ticket]:
-    filtered_tickets = tickets
-
-    if status is not None:
-        filtered_tickets = [
+    def get_tickets_by_ids(self, *ticket_ids: int) -> list[Ticket]:
+        return [
             ticket
-            for ticket in filtered_tickets
-            if ticket.status == status
+            for ticket in tickets
+            if ticket.id in ticket_ids
         ]
 
-    if priority is not None:
-        filtered_tickets = [
+    def get_open_tickets(self) -> list[Ticket]:
+        return [
             ticket
-            for ticket in filtered_tickets
-            if ticket.priority == priority
+            for ticket in tickets
+            if ticket.is_open
         ]
 
-    if customer_id is not None:
-        filtered_tickets = [
+    def get_high_priority_tickets(self) -> list[Ticket]:
+        return [
             ticket
-            for ticket in filtered_tickets
-            if ticket.customer_id == customer_id
+            for ticket in tickets
+            if ticket.priority in ("high", "critical")
         ]
 
-    if requires_escalation is not None:
-        filtered_tickets = [
-            ticket
-            for ticket in filtered_tickets
-            if ticket.requires_escalation == requires_escalation
-        ]
+    def should_escalate_ticket(self, ticket: Ticket) -> bool:
+        return ticket.requires_escalation
 
-    return filtered_tickets
+    def filter_tickets(
+        self,
+        *,
+        status: str | None = None,
+        priority: str | None = None,
+        customer_id: int | None = None,
+        requires_escalation: bool | None = None,
+    ) -> list[Ticket]:
+        filtered_tickets = tickets
 
+        if status is not None:
+            filtered_tickets = [
+                ticket
+                for ticket in filtered_tickets
+                if ticket.status == status
+            ]
 
-def count_tickets_by_status() -> dict[str, int]:
-    status_counts = {status: 0 for status in Ticket.ALLOWED_STATUSES}
+        if priority is not None:
+            filtered_tickets = [
+                ticket
+                for ticket in filtered_tickets
+                if ticket.priority == priority
+            ]
 
-    for ticket in tickets:
-        status_counts[ticket.status] += 1
+        if customer_id is not None:
+            filtered_tickets = [
+                ticket
+                for ticket in filtered_tickets
+                if ticket.customer_id == customer_id
+            ]
 
-    return status_counts
+        if requires_escalation is not None:
+            filtered_tickets = [
+                ticket
+                for ticket in filtered_tickets
+                if ticket.requires_escalation == requires_escalation
+            ]
 
+        return filtered_tickets
 
-def group_tickets_by_customer() -> dict[int, list[Ticket]]:
-    customer_ticket_map = {customer.id: [] for customer in customers}
+    def count_tickets_by_status(self) -> dict[str, int]:
+        status_counts = {status: 0 for status in Ticket.ALLOWED_STATUSES}
 
-    for ticket in tickets:
-        customer_ticket_map[ticket.customer_id].append(ticket)
+        for ticket in tickets:
+            status_counts[ticket.status] += 1
 
-    return customer_ticket_map
+        return status_counts
 
+    def group_tickets_by_customer(self) -> dict[int, list[Ticket]]:
+        customer_ticket_map = {customer.id: [] for customer in customers}
 
-def get_tickets_sorted_by_priority() -> list[Ticket]:
-    priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+        for ticket in tickets:
+            customer_ticket_map[ticket.customer_id].append(ticket)
 
-    return sorted(
-        tickets,
-        key=lambda ticket: priority_order[ticket.priority]
-    )
+        return customer_ticket_map
 
+    def get_tickets_sorted_by_priority(self) -> list[Ticket]:
+        priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
-def get_ticket_sla_hours(ticket: Ticket) -> int:
-    match ticket.priority:
-        case "critical":
-            return 1
-        case "high":
-            return 4
-        case "medium":
-            return 12
-        case "low":
-            return 48
-        case _:
-            raise InvalidTicketPriorityError(ticket.priority)
+        return sorted(
+            tickets,
+            key=lambda ticket: priority_order[ticket.priority],
+        )
 
+    def get_ticket_sla_hours(self, ticket: Ticket) -> int:
+        match ticket.priority:
+            case "critical":
+                return 1
+            case "high":
+                return 4
+            case "medium":
+                return 12
+            case "low":
+                return 48
+            case _:
+                raise InvalidTicketPriorityError(ticket.priority)
 
-def get_ticket_response_strategy(ticket: Ticket) -> str:
-    return ticket.response_strategy
+    def get_ticket_response_strategy(self, ticket: Ticket) -> str:
+        return ticket.response_strategy
 
+    def create_ticket(
+        self,
+        *,
+        customer_id: int,
+        subject: str,
+        description: str,
+        priority: str,
+    ) -> Ticket:
+        customer = self.customer_service.get_customer_by_id(customer_id)
+        self.customer_service.validate_customer_can_create_ticket(customer)
 
-def create_ticket(
-    *,
-    customer_id: int,
-    subject: str,
-    description: str,
-    priority: str,
-) -> Ticket:
-    customer = get_customer_by_id(customer_id)
-    validate_customer_can_create_ticket(customer)
+        ticket = Ticket.create_new(
+            id=max(ticket.id for ticket in tickets) + 1,
+            customer_id=customer_id,
+            subject=subject,
+            description=description,
+            priority=priority,
+        )
+        tickets.append(ticket)
 
-    ticket = Ticket.create_new(
-        id=max(ticket.id for ticket in tickets) + 1,
-        customer_id=customer_id,
-        subject=subject,
-        description=description,
-        priority=priority,
-    )
-    tickets.append(ticket)
-
-    return ticket
+        return ticket
