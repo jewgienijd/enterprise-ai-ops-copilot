@@ -1,5 +1,8 @@
-from ..customers.service import get_customers_by_ids
-from ..tickets.service import filter_tickets, get_ticket_sla_hours
+from ..customers.service import CustomerService
+from ..tickets.service import TicketService
+
+customer_service = CustomerService()
+ticket_service = TicketService(customer_service=customer_service)
 
 
 def print_support_summary(
@@ -7,7 +10,7 @@ def print_support_summary(
     status: str | None = None,
     priorities: tuple[str, ...] | None = None,
 ) -> None:
-    filtered_tickets = filter_tickets(status=status)
+    filtered_tickets = ticket_service.filter_tickets(status=status)
 
     if priorities is not None:
         priority_filters = set(priorities)
@@ -17,7 +20,7 @@ def print_support_summary(
             if ticket.priority in priority_filters
         ]
 
-    report_customers = get_customers_by_ids(
+    report_customers = customer_service.get_customers_by_ids(
         *[ticket.customer_id for ticket in filtered_tickets]
     )
     customers_by_id = {
@@ -45,6 +48,6 @@ def print_support_summary(
         print(f"{index}. {ticket.subject}")
         print(f"   Customer: {customer_name}")
         print(f"   Priority: {ticket.priority.upper()}")
-        print(f"   SLA: {get_ticket_sla_hours(ticket)}h")
+        print(f"   SLA: {ticket_service.get_ticket_sla_hours(ticket)}h")
         print(f"   Escalation: {escalation}")
         print()

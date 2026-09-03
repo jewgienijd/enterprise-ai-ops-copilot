@@ -3,24 +3,19 @@ from fastapi import FastAPI, HTTPException, status
 from .core.exceptions import ApplicationError
 from .customers.exceptions import CustomerNotFoundError, InactiveCustomerError
 from .customers.model import Customer
-from .customers.service import (
-    get_customer_by_id,
-    get_customer_tickets,
-    list_customers,
-)
+from .customers.service import CustomerService
+from .dependencies import CustomerServiceDep, TicketServiceDep
 from .subscriptions.exceptions import SubscriptionNotFoundError
 from .subscriptions.service import get_active_customer_subscription
 from .tickets.exceptions import InvalidTicketPriorityError, TicketNotFoundError
 from .tickets.schemas import TicketCreateRequest, TicketResponse
-from .tickets.service import filter_tickets, get_ticket_by_id
-from .tickets.service import (
-    create_ticket as create_ticket_service,
-)
+from .tickets.service import TicketService
 
 app = FastAPI(
     title="Enterprise AI Ops Copilot API",
     version="0.1.0",
 )
+
 
 @app.get("/")
 def read_root():
@@ -31,26 +26,34 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 @app.get("/customers")
-def get_customers(active: bool | None = None) -> list[Customer]:
-    return list_customers(active=active)
+def get_customers(
+    customer_service: CustomerServiceDep,
+    active: bool | None = None,
+) -> list[Customer]:
+    return customer_service.list_customers(active=active)
 
 
 @app.get("/customers/{customer_id}")
-def get_customer(customer_id: int) -> Customer:
+def get_customer(
+    customer_id: int,
+    customer_service: CustomerServiceDep,
+) -> Customer:
     try:
-        return get_customer_by_id(customer_id)
+        return customer_service.get_customer_by_id(customer_id)
     except CustomerNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
-        
+
+
 @app.get("/tickets")
 def get_tickets(
+    ticket_service: TicketServiceDep,
     ticket_status: str | None = None,
     priority: str | None = None,
 ):
-    return filter_tickets(status=ticket_status, priority=priority)
+    return ticket_service.filter_tickets(status=ticket_status, priority=priority)
 
 
 @app.post(
@@ -59,9 +62,10 @@ def get_tickets(
 )
 def create_ticket(
     request: TicketCreateRequest,
+    ticket_service: TicketServiceDep,
 ) -> TicketResponse:
     try:
-        ticket = create_ticket_service(
+        ticket = ticket_service.create_ticket(
             customer_id=request.customer_id,
             subject=request.subject,
             description=request.description,
@@ -79,9 +83,10 @@ def create_ticket(
 @app.get("/tickets/{ticket_id}")
 def get_ticket(
     ticket_id: int,
+    ticket_service: TicketServiceDep,
 ) -> TicketResponse:
     try:
-        ticket = get_ticket_by_id(ticket_id)
+        ticket = ticket_service.get_ticket_by_id(ticket_id)
     except TicketNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -92,10 +97,16 @@ def get_ticket(
 
 
 def main() -> None:
-    customer = get_customer_by_id(1)
+    customer_service = CustomerService()
+    ticket_service = TicketService(customer_service=customer_service)
+
+    customer = customer_service.get_customer_by_id(1)
     subscription = get_active_customer_subscription(customer.id)
-    customer_tickets = get_customer_tickets(customer.id)
-    open_tickets = filter_tickets(status="open", customer_id=customer.id)
+    customer_tickets = customer_service.get_customer_tickets(customer.id)
+    open_tickets = ticket_service.filter_tickets(
+        status="open",
+        customer_id=customer.id,
+    )
     escalated_tickets = [
         ticket
         for ticket in customer_tickets
@@ -119,7 +130,7 @@ def main() -> None:
     print("Ticket creation scenarios:")
 
     try:
-        ticket = create_ticket_service(
+        ticket = ticket_service.create_ticket(
             customer_id=1,
             subject="Cannot access reports",
             description="Reports page returns an error.",
@@ -133,7 +144,7 @@ def main() -> None:
         print("Ticket creation attempt finished")
 
     try:
-        create_ticket_service(
+        ticket_service.create_ticket(
             customer_id=999,
             subject="Test",
             description="Test",
@@ -143,7 +154,7 @@ def main() -> None:
         print(f"Cannot create ticket: {exc}")
 
     try:
-        create_ticket_service(
+        ticket_service.create_ticket(
             customer_id=5,
             subject="Test",
             description="Test",
@@ -153,7 +164,7 @@ def main() -> None:
         print(f"Cannot create ticket: {exc}")
 
     try:
-        create_ticket_service(
+        ticket_service.create_ticket(
             customer_id=1,
             subject="Test",
             description="Test",
@@ -170,8 +181,6 @@ def main() -> None:
         get_active_customer_subscription(5)
     except SubscriptionNotFoundError as exc:
         print(f"Subscription problem: {exc}")
-        
-    
 
 
 if __name__ == "__main__":
