@@ -1,9 +1,11 @@
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy.orm import Session
 
 from app.customers.service import CustomerService
 from app.tickets.service import TicketService
+from apps.api.app.db.session import get_db_session
 
 
 def get_customer_service() -> CustomerService:
@@ -28,3 +30,8 @@ TicketServiceDep = Annotated[
     TicketService,
     Depends(get_ticket_service),
 ]
+
+DbSessionDep = Annotated[
+    Session,
+    Depends(get_db_session),
+]       
